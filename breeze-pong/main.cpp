@@ -63,13 +63,15 @@ GLuint g_windballTextureID;
 
 glm::vec3 g_player1Pos = glm::vec3(-4.5f, 0.0f, 0.0f);
 glm::vec3 g_player2Pos = glm::vec3(4.5f, 0.0f, 0.0f);
-glm::vec3 g_windballPos = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_windballPos = glm::vec3(0.0f);
 
-glm::vec3 g_player1Dir = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_player2Dir = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 g_windballDir = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_player1Dir = glm::vec3(0.0f);
+glm::vec3 g_player2Dir = glm::vec3(0.0f);
+glm::vec3 g_windballDir = glm::vec3(-1.0f, 0.0f, 0.0f);
 
-float timer = 0.0;
+float g_timer = 0.0;
+bool g_vsAI = false;
+bool g_AImovingUp = true;
 
 GLuint load_texture(const char* filepath) {
 	// load image file
@@ -134,11 +136,40 @@ void initialize() {
 }
 
 void processInput() {
+	// reset player movement directions
+	g_player1Dir = glm::vec3(0.0f);
+	g_player2Dir = glm::vec3(0.0f);
+
+	// poll for event triggers
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
 			g_gameIsRunning = false;
-		}
+		} else if (event.type == SDL_KEYDOWN) {
+			switch (event.key.keysym.sym) {
+				case SDLK_q:
+					g_gameIsRunning = false;
+					break;
+				case SDLK_t:
+					g_vsAI = !g_vsAI;
+					break;
+			}
+		} 
+	}
+
+	// respond to player movement inputs
+	const Uint8* key_state = SDL_GetKeyboardState(NULL);
+	if (key_state[SDL_SCANCODE_W]) {
+		g_player1Dir.y += 1.0f;
+	}
+	if (key_state[SDL_SCANCODE_S]) {
+		g_player1Dir.y += -1.0f;
+	}
+	if (key_state[SDL_SCANCODE_UP] && !g_vsAI) {
+		g_player2Dir.y += 1.0f;
+	}
+	if (key_state[SDL_SCANCODE_DOWN] && !g_vsAI) {
+		g_player2Dir.y += -1.0f;
 	}
 }
 
@@ -147,7 +178,30 @@ void update() {
 	float deltaTime = ticks - g_previousTicks; // the delta time is the difference from the last frame
 	g_previousTicks = ticks;
 
-	
+	// if player 2 is AI-controlled, determine their motion
+	if (g_vsAI) {
+		if (g_AImovingUp) {
+			if (g_player2Pos.y >= 2.55f) {
+				g_AImovingUp = false;
+				g_player2Dir.y = -1.0f;
+			} else {
+				g_player2Dir.y = 1.0f;
+			}
+		} else {
+			if (g_player2Pos.y <= -2.55f) {
+				g_AImovingUp = true;
+				g_player2Dir.y = 1.0f;
+			}
+			else {
+				g_player2Dir.y = -1.0f;
+			}
+		}
+	}
+
+	// apply motion
+	g_player1Pos += g_player1Dir * 3.0f * deltaTime;
+	g_player2Pos += g_player2Dir * 3.0f * deltaTime;
+	g_windballPos += g_windballDir * 2.0f * deltaTime;
 
 	// reset and translate all the objects
 	g_modelMatrix_p1 = glm::mat4(1.0f);
