@@ -67,9 +67,11 @@ glm::vec3 g_windballPos = glm::vec3(0.0f);
 
 glm::vec3 g_player1Dir = glm::vec3(0.0f);
 glm::vec3 g_player2Dir = glm::vec3(0.0f);
-glm::vec3 g_windballDir = glm::vec3(-1.0f, 0.0f, 0.0f);
+glm::vec3 g_windballDir = glm::vec3(-0.894f, 0.447f, 0.0f);
 
-float g_timer = 0.0;
+float g_windballSpeed = 3.5f;
+float g_gameOverTimer = 3.0;
+bool g_gameHasEnded = 0;
 bool g_vsAI = false;
 bool g_AImovingUp = true;
 
@@ -159,16 +161,16 @@ void processInput() {
 
 	// respond to player movement inputs
 	const Uint8* key_state = SDL_GetKeyboardState(NULL);
-	if (key_state[SDL_SCANCODE_W]) {
+	if (key_state[SDL_SCANCODE_W] && g_player1Pos.y <= 2.5f) {
 		g_player1Dir.y += 1.0f;
 	}
-	if (key_state[SDL_SCANCODE_S]) {
+	if (key_state[SDL_SCANCODE_S] && g_player1Pos.y >= -2.5f) {
 		g_player1Dir.y += -1.0f;
 	}
-	if (key_state[SDL_SCANCODE_UP] && !g_vsAI) {
+	if (key_state[SDL_SCANCODE_UP] && g_player2Pos.y <= 2.5f && !g_vsAI) {
 		g_player2Dir.y += 1.0f;
 	}
-	if (key_state[SDL_SCANCODE_DOWN] && !g_vsAI) {
+	if (key_state[SDL_SCANCODE_DOWN] && g_player2Pos.y >= -2.5f && !g_vsAI) {
 		g_player2Dir.y += -1.0f;
 	}
 }
@@ -198,10 +200,33 @@ void update() {
 		}
 	}
 
+	// ball collision detection
+	float yDistFrom1 = g_windballPos.y - g_player1Pos.y;
+	float yDistFrom2 = g_windballPos.y - g_player2Pos.y;
+	if (g_windballPos.x < -3.8f && g_windballPos.x > -4.3f && abs(yDistFrom1) < 1.5f) {
+		g_windballDir.x = 1.0f;
+		g_windballDir = glm::normalize(g_windballDir + glm::vec3(0.0f, 0.4*yDistFrom1, 0.0f));
+	} else if (g_windballPos.x > 3.8f && g_windballPos.x < 4.3f && abs(yDistFrom2) < 1.5f) {
+		g_windballDir.x = -1.0f;
+		g_windballDir = glm::normalize(g_windballDir + glm::vec3(0.0f, 0.4*yDistFrom2, 0.0f));
+	}
+	if (g_windballPos.y > 3.5f || g_windballPos.y < -3.5f) {
+		g_windballDir.y = -g_windballDir.y;
+		g_windballPos.y += g_windballDir.y * 0.5f * deltaTime;
+	}
+
+	// game over detection
+	if (g_windballPos.x > 5.0f || g_windballPos.x < -5.0f) g_gameHasEnded = true;
+	if (g_gameHasEnded) g_gameOverTimer -= 1.0f * deltaTime;
+	if (g_gameOverTimer <= 0.0f) g_gameIsRunning = false;
+
 	// apply motion
-	g_player1Pos += g_player1Dir * 3.0f * deltaTime;
-	g_player2Pos += g_player2Dir * 3.0f * deltaTime;
-	g_windballPos += g_windballDir * 2.0f * deltaTime;
+	if (!g_gameHasEnded) {
+		g_player1Pos += g_player1Dir * 3.0f * deltaTime;
+		g_player2Pos += g_player2Dir * (g_vsAI ? 5.0f : 3.0f) * deltaTime;
+		g_windballPos += g_windballDir * g_windballSpeed * deltaTime;
+		g_windballSpeed += 0.08f * deltaTime;
+	}
 
 	// reset and translate all the objects
 	g_modelMatrix_p1 = glm::mat4(1.0f);
@@ -247,7 +272,7 @@ void render() {
 	// draw the sprites here!
 	draw_object(g_modelMatrix_p1, g_player1TextureID);
 	draw_object(g_modelMatrix_p2, g_player2TextureID);
-	draw_object(g_modelMatrix_ball, g_windballTextureID);
+	if (!g_gameHasEnded) draw_object(g_modelMatrix_ball, g_windballTextureID);
 
 	glDisableVertexAttribArray(g_shaderProgram.get_position_attribute());
 	glDisableVertexAttribArray(g_shaderProgram.get_tex_coordinate_attribute());
