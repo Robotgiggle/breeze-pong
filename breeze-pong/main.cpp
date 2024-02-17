@@ -31,7 +31,9 @@ const int VIEWPORT_X = 0,
 
 // paths for shaders and sprites
 const char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
-		   F_SHADER_PATH[] = "shaders/fragment_textured.glsl";
+		   F_SHADER_PATH[] = "shaders/fragment_textured.glsl",
+		   BREEZE_PATH[] = "assets/breeze_thin.png",
+		   WINDBALL_PATH[] = "assets/wind_charge.png";
 
 // const for deltaTime calc
 const float MILLISECONDS_IN_SECOND = 1000.0;
@@ -42,15 +44,32 @@ const GLint LEVEL_OF_DETAIL = 0; // base image level; Level n is the nth mipmap 
 const GLint TEXTURE_BORDER = 0; // this value MUST be zero
 
 // shader and associated matrices
-ShaderProgram g_program;
+ShaderProgram g_shaderProgram;
 glm::mat4 g_viewMatrix,
-		  g_modelMatrix,
+		  g_modelMatrix_p1,
+		  g_modelMatrix_p2,
+	      g_modelMatrix_ball,
 		  g_projectionMatrix;
 
 // core globals
 SDL_Window* g_displayWindow;
 bool g_gameIsRunning = true;
 float g_previousTicks;
+
+// custom globals
+GLuint g_player1TextureID;
+GLuint g_player2TextureID;
+GLuint g_windballTextureID;
+
+glm::vec3 g_player1Pos = glm::vec3(-4.5f, 0.0f, 0.0f);
+glm::vec3 g_player2Pos = glm::vec3(4.5f, 0.0f, 0.0f);
+glm::vec3 g_windballPos = glm::vec3(0.0f, 0.0f, 0.0f);
+
+glm::vec3 g_player1Dir = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_player2Dir = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 g_windballDir = glm::vec3(0.0f, 0.0f, 0.0f);
+
+float timer = 0.0;
 
 GLuint load_texture(const char* filepath) {
 	// load image file
@@ -90,16 +109,23 @@ void initialize() {
 
 	glViewport(0, 0, 640, 480);
 
-	g_program.load(V_SHADER_PATH, F_SHADER_PATH);
+	g_shaderProgram.load(V_SHADER_PATH, F_SHADER_PATH);
+
+	// load the textures into IDs here!
+	g_player1TextureID = load_texture(BREEZE_PATH);
+	g_player2TextureID = load_texture(BREEZE_PATH);
+	g_windballTextureID = load_texture(WINDBALL_PATH);
 
 	g_viewMatrix = glm::mat4(1.0f);
-	g_modelMatrix = glm::mat4(1.0f);
+	g_modelMatrix_p1 = glm::mat4(1.0f);
+	g_modelMatrix_p2 = glm::mat4(1.0f);
+	g_modelMatrix_ball = glm::mat4(1.0f);
 	g_projectionMatrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
-	g_program.set_projection_matrix(g_projectionMatrix);
-	g_program.set_view_matrix(g_viewMatrix);
+	g_shaderProgram.set_projection_matrix(g_projectionMatrix);
+	g_shaderProgram.set_view_matrix(g_viewMatrix);
 
-	glUseProgram(g_program.get_program_id());
+	glUseProgram(g_shaderProgram.get_program_id());
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -121,6 +147,26 @@ void update() {
 	float deltaTime = ticks - g_previousTicks; // the delta time is the difference from the last frame
 	g_previousTicks = ticks;
 
+	
+
+	// reset and translate all the objects
+	g_modelMatrix_p1 = glm::mat4(1.0f);
+	g_modelMatrix_p2 = glm::mat4(1.0f);
+	g_modelMatrix_ball = glm::mat4(1.0f);
+	g_modelMatrix_p1 = glm::translate(g_modelMatrix_p1, g_player1Pos);
+	g_modelMatrix_p2 = glm::translate(g_modelMatrix_p2, g_player2Pos);
+	g_modelMatrix_ball = glm::translate(g_modelMatrix_ball, g_windballPos);
+
+	// scale everything to the correct shape
+	g_modelMatrix_p1 = glm::scale(g_modelMatrix_p1, glm::vec3(-1.1f, 2.75f, 0.0f));
+	g_modelMatrix_p2 = glm::scale(g_modelMatrix_p2, glm::vec3(1.1f, 2.75f, 0.0f));
+	g_modelMatrix_ball = glm::scale(g_modelMatrix_ball, glm::vec3(0.8f, 0.8f, 0.0f));
+}
+
+void draw_object(glm::mat4& modelMatrix, GLuint& textureID) {
+	g_shaderProgram.set_model_matrix(modelMatrix);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 void render() {
@@ -138,17 +184,19 @@ void render() {
 		0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,     // triangle 2
 	};
 
-	glVertexAttribPointer(g_program.get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
-	glEnableVertexAttribArray(g_program.get_position_attribute());
+	glVertexAttribPointer(g_shaderProgram.get_position_attribute(), 2, GL_FLOAT, false, 0, vertices);
+	glEnableVertexAttribArray(g_shaderProgram.get_position_attribute());
 
-	glVertexAttribPointer(g_program.get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, texture_coordinates);
-	glEnableVertexAttribArray(g_program.get_tex_coordinate_attribute());
+	glVertexAttribPointer(g_shaderProgram.get_tex_coordinate_attribute(), 2, GL_FLOAT, false, 0, texture_coordinates);
+	glEnableVertexAttribArray(g_shaderProgram.get_tex_coordinate_attribute());
 
 	// draw the sprites here!
-	// -->  <--
+	draw_object(g_modelMatrix_p1, g_player1TextureID);
+	draw_object(g_modelMatrix_p2, g_player2TextureID);
+	draw_object(g_modelMatrix_ball, g_windballTextureID);
 
-	glDisableVertexAttribArray(g_program.get_position_attribute());
-	glDisableVertexAttribArray(g_program.get_tex_coordinate_attribute());
+	glDisableVertexAttribArray(g_shaderProgram.get_position_attribute());
+	glDisableVertexAttribArray(g_shaderProgram.get_tex_coordinate_attribute());
 
 	SDL_GL_SwapWindow(g_displayWindow);
 }
