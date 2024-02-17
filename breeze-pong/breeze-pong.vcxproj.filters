@@ -37,5 +37,11 @@
     <Image Include="assets\wind_charge.png">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="assets\player_1_wins.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="assets\player_2_wins.png">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

@@ -29,11 +29,15 @@ const int VIEWPORT_X = 0,
 		  VIEWPORT_WIDTH = WINDOW_WIDTH,
 		  VIEWPORT_HEIGHT = WINDOW_HEIGHT;
 
-// paths for shaders and sprites
+// paths for shaders
 const char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
-		   F_SHADER_PATH[] = "shaders/fragment_textured.glsl",
-		   BREEZE_PATH[] = "assets/breeze_thin.png",
-		   WINDBALL_PATH[] = "assets/wind_charge.png";
+		   F_SHADER_PATH[] = "shaders/fragment_textured.glsl";
+
+// paths for object sprites
+const char BREEZE_PATH[] = "assets/breeze_thin.png",
+		   WINDBALL_PATH[] = "assets/wind_charge.png",
+		   P1_WINS_PATH[] = "assets/player_1_wins.png",
+		   P2_WINS_PATH[] = "assets/player_2_wins.png";
 
 // const for deltaTime calc
 const float MILLISECONDS_IN_SECOND = 1000.0;
@@ -49,6 +53,7 @@ glm::mat4 g_viewMatrix,
 		  g_modelMatrix_p1,
 		  g_modelMatrix_p2,
 	      g_modelMatrix_ball,
+		  g_modelMatrix_text,
 		  g_projectionMatrix;
 
 // core globals
@@ -60,6 +65,8 @@ float g_previousTicks;
 GLuint g_player1TextureID;
 GLuint g_player2TextureID;
 GLuint g_windballTextureID;
+GLuint g_p1WinsTextureID;
+GLuint g_p2WinsTextureID;
 
 glm::vec3 g_player1Pos = glm::vec3(-4.5f, 0.0f, 0.0f);
 glm::vec3 g_player2Pos = glm::vec3(4.5f, 0.0f, 0.0f);
@@ -71,9 +78,9 @@ glm::vec3 g_windballDir = glm::vec3(-0.894f, 0.447f, 0.0f);
 
 float g_windballSpeed = 3.5f;
 float g_gameOverTimer = 3.0;
-bool g_gameHasEnded = 0;
+float g_AImovementAngle = 0.0f;
+float g_gameOver = 0;
 bool g_vsAI = false;
-bool g_AImovingUp = true;
 
 GLuint load_texture(const char* filepath) {
 	// load image file
@@ -119,11 +126,14 @@ void initialize() {
 	g_player1TextureID = load_texture(BREEZE_PATH);
 	g_player2TextureID = load_texture(BREEZE_PATH);
 	g_windballTextureID = load_texture(WINDBALL_PATH);
+	g_p1WinsTextureID = load_texture(P1_WINS_PATH);
+	g_p2WinsTextureID = load_texture(P2_WINS_PATH);
 
 	g_viewMatrix = glm::mat4(1.0f);
 	g_modelMatrix_p1 = glm::mat4(1.0f);
 	g_modelMatrix_p2 = glm::mat4(1.0f);
 	g_modelMatrix_ball = glm::mat4(1.0f);
+	g_modelMatrix_text = glm::scale(glm::mat4(1.0f), glm::vec3(7.0f, 7.0f, 0.0f));
 	g_projectionMatrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
 	g_shaderProgram.set_projection_matrix(g_projectionMatrix);
@@ -142,7 +152,7 @@ void processInput() {
 	g_player1Dir = glm::vec3(0.0f);
 	g_player2Dir = glm::vec3(0.0f);
 
-	// poll for event triggers
+	// check for keystrokes and other events
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
@@ -180,24 +190,10 @@ void update() {
 	float deltaTime = ticks - g_previousTicks; // the delta time is the difference from the last frame
 	g_previousTicks = ticks;
 
-	// if player 2 is AI-controlled, determine their motion
+	// if player 2 is AI-controlled, they move in a sinusoidal pattern
 	if (g_vsAI) {
-		if (g_AImovingUp) {
-			if (g_player2Pos.y >= 2.55f) {
-				g_AImovingUp = false;
-				g_player2Dir.y = -1.0f;
-			} else {
-				g_player2Dir.y = 1.0f;
-			}
-		} else {
-			if (g_player2Pos.y <= -2.55f) {
-				g_AImovingUp = true;
-				g_player2Dir.y = 1.0f;
-			}
-			else {
-				g_player2Dir.y = -1.0f;
-			}
-		}
+		g_player2Pos.y = 2.5f * sin(g_AImovementAngle);
+		g_AImovementAngle += 3.5f * deltaTime;
 	}
 
 	// ball collision detection
@@ -206,7 +202,7 @@ void update() {
 	if (g_windballPos.x < -3.8f && g_windballPos.x > -4.3f && abs(yDistFrom1) < 1.5f) {
 		g_windballDir.x = 1.0f;
 		g_windballDir = glm::normalize(g_windballDir + glm::vec3(0.0f, 0.4*yDistFrom1, 0.0f));
-	} else if (g_windballPos.x > 3.8f && g_windballPos.x < 4.3f && abs(yDistFrom2) < 1.5f) {
+	} else if (g_windballPos.x > 3.8f && g_windballPos.x < (g_vsAI? 4.8f : 4.3f) && abs(yDistFrom2) < 1.5f) {
 		g_windballDir.x = -1.0f;
 		g_windballDir = glm::normalize(g_windballDir + glm::vec3(0.0f, 0.4*yDistFrom2, 0.0f));
 	}
@@ -216,17 +212,16 @@ void update() {
 	}
 
 	// game over detection
-	if (g_windballPos.x > 5.0f || g_windballPos.x < -5.0f) g_gameHasEnded = true;
-	if (g_gameHasEnded) g_gameOverTimer -= 1.0f * deltaTime;
+	if (g_windballPos.x > 5.0f) g_gameOver = 1;
+	else if (g_windballPos.x < -5.0f) g_gameOver = 2;
+	if (g_gameOver) g_gameOverTimer -= 1.0f * deltaTime;
 	if (g_gameOverTimer <= 0.0f) g_gameIsRunning = false;
 
 	// apply motion
-	if (!g_gameHasEnded) {
-		g_player1Pos += g_player1Dir * 3.0f * deltaTime;
-		g_player2Pos += g_player2Dir * (g_vsAI ? 5.0f : 3.0f) * deltaTime;
-		g_windballPos += g_windballDir * g_windballSpeed * deltaTime;
-		g_windballSpeed += 0.08f * deltaTime;
-	}
+	g_player1Pos += g_player1Dir * 3.0f * deltaTime;
+	if (!g_vsAI) g_player2Pos += g_player2Dir * 3.0f * deltaTime;
+	g_windballPos += g_windballDir * g_windballSpeed * deltaTime;
+	g_windballSpeed += 0.08f * deltaTime;
 
 	// reset and translate all the objects
 	g_modelMatrix_p1 = glm::mat4(1.0f);
@@ -272,7 +267,8 @@ void render() {
 	// draw the sprites here!
 	draw_object(g_modelMatrix_p1, g_player1TextureID);
 	draw_object(g_modelMatrix_p2, g_player2TextureID);
-	if (!g_gameHasEnded) draw_object(g_modelMatrix_ball, g_windballTextureID);
+	if (!g_gameOver) draw_object(g_modelMatrix_ball, g_windballTextureID);
+	if (g_gameOver) draw_object(g_modelMatrix_text, (g_gameOver == 1) ? g_p1WinsTextureID : g_p2WinsTextureID);
 
 	glDisableVertexAttribArray(g_shaderProgram.get_position_attribute());
 	glDisableVertexAttribArray(g_shaderProgram.get_tex_coordinate_attribute());
