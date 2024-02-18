@@ -37,7 +37,8 @@ const char V_SHADER_PATH[] = "shaders/vertex_textured.glsl",
 const char BREEZE_PATH[] = "assets/breeze_thin.png",
 		   WINDBALL_PATH[] = "assets/wind_charge.png",
 		   P1_WINS_PATH[] = "assets/player_1_wins.png",
-		   P2_WINS_PATH[] = "assets/player_2_wins.png";
+		   P2_WINS_PATH[] = "assets/player_2_wins.png",
+		   BACKGROUND_PATH[] = "assets/trial_chamber.png";
 
 // const for deltaTime calc
 const float MILLISECONDS_IN_SECOND = 1000.0;
@@ -54,6 +55,7 @@ glm::mat4 g_viewMatrix,
 		  g_modelMatrix_p2,
 	      g_modelMatrix_ball,
 		  g_modelMatrix_text,
+		  g_modelMatrix_back,
 		  g_projectionMatrix;
 
 // core globals
@@ -67,6 +69,7 @@ GLuint g_player2TextureID;
 GLuint g_windballTextureID;
 GLuint g_p1WinsTextureID;
 GLuint g_p2WinsTextureID;
+GLuint g_backgroundTextureID;
 
 glm::vec3 g_player1Pos = glm::vec3(-4.5f, 0.0f, 0.0f);
 glm::vec3 g_player2Pos = glm::vec3(4.5f, 0.0f, 0.0f);
@@ -128,12 +131,14 @@ void initialize() {
 	g_windballTextureID = load_texture(WINDBALL_PATH);
 	g_p1WinsTextureID = load_texture(P1_WINS_PATH);
 	g_p2WinsTextureID = load_texture(P2_WINS_PATH);
+	g_backgroundTextureID = load_texture(BACKGROUND_PATH);
 
 	g_viewMatrix = glm::mat4(1.0f);
 	g_modelMatrix_p1 = glm::mat4(1.0f);
 	g_modelMatrix_p2 = glm::mat4(1.0f);
 	g_modelMatrix_ball = glm::mat4(1.0f);
 	g_modelMatrix_text = glm::scale(glm::mat4(1.0f), glm::vec3(7.0f, 7.0f, 0.0f));
+	g_modelMatrix_back = glm::scale(glm::mat4(1.0f), glm::vec3(10.2f, 7.5f, 0.0f));
 	g_projectionMatrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
 	g_shaderProgram.set_projection_matrix(g_projectionMatrix);
@@ -199,10 +204,10 @@ void update() {
 	// ball collision detection
 	float yDistFrom1 = g_windballPos.y - g_player1Pos.y;
 	float yDistFrom2 = g_windballPos.y - g_player2Pos.y;
-	if (g_windballPos.x < -3.8f && g_windballPos.x > -4.3f && abs(yDistFrom1) < 1.5f) {
+	if (g_windballPos.x < -3.7f && g_windballPos.x > -4.3f && abs(yDistFrom1) < 1.5f) {
 		g_windballDir.x = 1.0f;
 		g_windballDir = glm::normalize(g_windballDir + glm::vec3(0.0f, 0.4*yDistFrom1, 0.0f));
-	} else if (g_windballPos.x > 3.8f && g_windballPos.x < (g_vsAI? 4.8f : 4.3f) && abs(yDistFrom2) < 1.5f) {
+	} else if (g_windballPos.x > 3.7f && g_windballPos.x < (g_vsAI? 4.8f : 4.3f) && abs(yDistFrom2) < 1.5f) {
 		g_windballDir.x = -1.0f;
 		g_windballDir = glm::normalize(g_windballDir + glm::vec3(0.0f, 0.4*yDistFrom2, 0.0f));
 	}
@@ -265,6 +270,7 @@ void render() {
 	glEnableVertexAttribArray(g_shaderProgram.get_tex_coordinate_attribute());
 
 	// draw the sprites here!
+	draw_object(g_modelMatrix_back, g_backgroundTextureID);
 	draw_object(g_modelMatrix_p1, g_player1TextureID);
 	draw_object(g_modelMatrix_p2, g_player2TextureID);
 	if (!g_gameOver) draw_object(g_modelMatrix_ball, g_windballTextureID);

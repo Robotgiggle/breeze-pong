@@ -144,6 +144,7 @@
     <Image Include="assets\breeze_thin.png" />
     <Image Include="assets\player_1_wins.png" />
     <Image Include="assets\player_2_wins.png" />
+    <Image Include="assets\trial_chamber.png" />
     <Image Include="assets\wind_charge.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
